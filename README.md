@@ -1,1 +1,1 @@
-A simple HTML/JS/CSS starter template
+Effortlessly upload any image, add comments, and streamline coordination
