@@ -1,1 +1,1 @@
-Effortlessly upload any image, add comments, and streamline coordination
+Effortlessly upload any image, add comments, and streamline coordination. I'm not a programmer, I used cursor AI. Some error when loading a new image, the previous mark-up re-appears ove rthe new image. If you are a kind code specialist can help to fix this. Thanks  Try  - https://arielc786.github.io/komento/
