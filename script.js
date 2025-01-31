@@ -1,459 +1,419 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // DOM elements
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const upload = document.getElementById('fileInput');
-    const textInput = document.getElementById('textInput');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const textBtn = document.getElementById('textBtn');
+    const drawBtn = document.getElementById('drawBtn');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const eraseBtn = document.getElementById('eraseBtn');
+
+    // State variables
     let drawing = false;
     let textMode = false;
-    let erasing = false;
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    const currentFileName = "canvas";
+    let saveCounter = 1;
+    let bgImage = null;
+    let eraseMode = false;
+
+    // Add drawnElements array to track drawings
     let drawnElements = [];
-    let img = null;
-    let canvasRatio = 1;
-    let currentText = '';
-    let textX = 0;
-    let textY = 0;
-    let isTextMode = false;
-    let textStarted = false;
-    let textArea = null;
-    let textPosition = { x: 0, y: 0 };
-    let isTyping = false;
-    let textLines = [];
-    let currentLine = '';
-    let lastEnterTime = 0;
-    const LINE_HEIGHT = 24;
 
-    // Resize the canvas to fit screen
-    function resizeCanvas(image) {
-        const maxWidth = window.innerWidth * 0.95; // 95% of the window width
-        const maxHeight = window.innerHeight * 0.9; // 90% of the window height
-        const ratio = Math.min(maxWidth / image.width, maxHeight / image.height);
-
-        canvas.width = image.width * ratio;
-        canvas.height = image.height * ratio;
-        canvasRatio = ratio;
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    // Set initial canvas size
+    function initCanvas() {
+        const displayWidth = window.innerWidth * 0.8;
+        const displayHeight = window.innerHeight * 0.8;
+        
+        // Set both CSS and canvas dimensions
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+        
+        // Change stroke color to neon red
+        ctx.strokeStyle = '#FF0044';  // Neon red color
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
     }
 
-    upload.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) {
-            alert('No file selected!');
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const image = new Image();
-            image.onload = function () {
-                resizeCanvas(image);
-            };
-            image.onerror = function () {
-                alert('Failed to load image!');
-            };
-            image.src = e.target.result;
+    // Mouse position calculation
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
         };
-        reader.onerror = function () {
-            alert('Failed to read file!');
-        };
-        reader.readAsDataURL(file);
-    });
+    }
 
-    document.getElementById('pencil').addEventListener('click', () => {
+    // Drawing handlers
+    drawBtn.addEventListener('click', () => {
         drawing = true;
         textMode = false;
-        erasing = false;
-        setActiveTool('pencil');
-    });
-
-    document.getElementById('eraser').addEventListener('click', () => {
-        drawing = false;
-        textMode = false;
-        erasing = true;
-        setActiveTool('eraser');
-    });
-
-    document.getElementById('text').addEventListener('click', () => {
-        drawing = false;
-        textMode = true;
-        erasing = false;
-        setActiveTool('text');
-    });
-
-    document.getElementById('clear').addEventListener('click', () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawnElements = [];
-        img = null; // Clear the image
-    });
-
-    document.getElementById('save').addEventListener('click', () => {
-        const timestamp = new Date().toISOString().replace(/[-:]/g, '-').split('.')[0];
-        const filename = `komento-${timestamp}.png`;
-
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL();
-        link.download = filename;
-        link.click();
+        eraseMode = false;
+        canvas.style.cursor = 'crosshair';
     });
 
     canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const offsetX = (e.clientX - rect.left) / canvasRatio;
-        const offsetY = (e.clientY - rect.top) / canvasRatio;
+        if (eraseMode) {
+            isDrawing = true;
+            erase(e);
+        } else if (drawing) {
+            isDrawing = true;
+            const pos = getMousePos(e);
+            [lastX, lastY] = [pos.x, pos.y];
+        }
+    });
 
-        if (drawing) {
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 5;
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        
+        if (eraseMode) {
+            erase(e);
+        } else if (drawing) {
+            const pos = getMousePos(e);
             ctx.beginPath();
-            ctx.moveTo(offsetX, offsetY);
-            drawnElements.push({ type: 'draw', path: [{ x: offsetX, y: offsetY }] });
-            canvas.addEventListener('mousemove', draw);
-        } else if (textMode) {
-            ctx.font = '20px Arial';
-            ctx.fillStyle = 'red';
-            const text = prompt("Enter text:");
-            if (text) {
-                ctx.fillText(text, offsetX, offsetY);
-                drawnElements.push({ type: 'text', text, x: offsetX, y: offsetY });
-            }
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            
+            // Store the drawn line
+            drawnElements.push({
+                type: 'line',
+                x1: lastX,
+                y1: lastY,
+                x2: pos.x,
+                y2: pos.y
+            });
+            
+            [lastX, lastY] = [pos.x, pos.y];
         }
     });
 
-    canvas.addEventListener('mouseup', () => {
-        if (drawing) {
-            canvas.removeEventListener('mousemove', draw);
-        }
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseout', () => isDrawing = false);
+
+    // Upload functionality
+    uploadBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
     });
 
-    function draw(e) {
-        const rect = canvas.getBoundingClientRect();
-        const offsetX = (e.clientX - rect.left) / canvasRatio;
-        const offsetY = (e.clientY - rect.top) / canvasRatio;
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        ctx.lineTo(offsetX, offsetY);
-        ctx.stroke();
-        drawnElements[drawnElements.length - 1].path.push({ x: offsetX, y: offsetY });
+        drawnElements = []; // Reset drawings
+        bgImage = new Image();
+        bgImage.onload = () => {
+            resizeCanvas(bgImage);
+        };
+        bgImage.src = URL.createObjectURL(file);
+    });
+
+    // Text functionality
+    textBtn.addEventListener('click', () => {
+        drawing = false;
+        textMode = true;
+        eraseMode = false;
+        canvas.style.cursor = 'text';
+    });
+
+    // Add this function to create custom text input UI
+    function createTextInput(x, y) {
+        // Create container div for the text input UI
+        const inputContainer = document.createElement('div');
+        inputContainer.style.cssText = `
+            position: absolute;
+            left: ${x}px;
+            top: ${y}px;
+            background: white;
+            border: 1px solid black;
+            padding: 5px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        `;
+
+        // Create text input
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.style.cssText = `
+            width: 300px;
+            height: 30px;
+            border: 1px solid #ccc;
+            padding: 5px;
+        `;
+
+        // Create OK button
+        const okButton = document.createElement('button');
+        okButton.textContent = 'OK';
+        okButton.style.cssText = `
+            padding: 5px 10px;
+            cursor: pointer;
+            height: 30px;
+        `;
+
+        // Create Cancel button
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'CANCEL';
+        cancelButton.style.cssText = `
+            padding: 5px 10px;
+            cursor: pointer;
+            height: 30px;
+        `;
+
+        // Add elements to input container
+        inputContainer.appendChild(textInput);
+        inputContainer.appendChild(okButton);
+        inputContainer.appendChild(cancelButton);
+
+        // Add container to document
+        document.body.appendChild(inputContainer);
+
+        // Focus the input
+        textInput.focus();
+
+        // Return promise for handling the result
+        return new Promise((resolve, reject) => {
+            okButton.onclick = () => {
+                const text = textInput.value;
+                document.body.removeChild(inputContainer);
+                resolve(text);
+            };
+
+            cancelButton.onclick = () => {
+                document.body.removeChild(inputContainer);
+                resolve(null);
+            };
+
+            // Handle Enter key
+            textInput.onkeyup = (e) => {
+                if (e.key === 'Enter') {
+                    okButton.click();
+                }
+            };
+
+            // Handle Escape key
+            textInput.onkeydown = (e) => {
+                if (e.key === 'Escape') {
+                    cancelButton.click();
+                }
+            };
+        });
     }
 
-    function drawAllElements() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (img) {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // Modify the text click handler
+    canvas.addEventListener('click', async (e) => {
+        if (!textMode) return;
+        const pos = getMousePos(e);
+        const text = await createTextInput(e.clientX, e.clientY);
+        if (text) {
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#FF0044';
+            // Add 5px to the Y position
+            ctx.fillText(text, pos.x, pos.y + 5);
+            drawnElements.push({
+                type: 'text',
+                text: text,
+                x: pos.x,
+                y: pos.y + 5  // Store the offset position
+            });
+            redrawCanvas();
         }
-        drawnElements.forEach((element) => {
-            if (element.type === 'draw') {
+    });
+
+    // Modify the camera/download button functionality
+    cameraBtn.addEventListener('click', () => {
+        // Create a temporary canvas to add the text stamp
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set temp canvas size to match main canvas
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        
+        // Fill with white background
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Copy current canvas content to temp canvas
+        tempCtx.drawImage(canvas, 0, 0);
+        
+        // Get original filename but force jpg extension
+        let originalFilename = fileInput.files[0] ? fileInput.files[0].name.split('.')[0] : 'image';
+        
+        // Limit filename length to 25 characters
+        if (originalFilename.length > 25) {
+            originalFilename = originalFilename.substring(0, 25) + '...';
+        }
+        
+        // Format date
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit'
+        });
+        
+        // Create stamp text with 'edg' suffix
+        const stampText = `${originalFilename}.jpg ${dateStr} edg`;
+        
+        // Set text style
+        tempCtx.font = '16px Arial';
+        tempCtx.fillStyle = '#FF0044';
+        
+        // Position text at bottom right corner with padding
+        const padding = 20;
+        const textWidth = tempCtx.measureText(stampText).width;
+        const textX = tempCanvas.width - textWidth - padding;
+        const textY = tempCanvas.height - padding;
+        
+        // Add text to canvas
+        tempCtx.fillText(stampText, textX, textY);
+        
+        // Create download link with jpg extension
+        const link = document.createElement('a');
+        link.download = `${originalFilename}-K${saveCounter}.jpg`;
+        link.href = tempCanvas.toDataURL('image/jpeg', 0.9);
+        link.click();
+        
+        saveCounter++;
+    });
+
+    // Add eraser button handler
+    eraseBtn.addEventListener('click', () => {
+        drawing = false;
+        textMode = false;
+        eraseMode = true;
+        // Use a cell cursor which looks similar to an eraser
+        canvas.style.cursor = 'cell';
+        // Alternative cursors you could use:
+        // canvas.style.cursor = 'crosshair';
+        // canvas.style.cursor = 'pointer';
+    });
+
+    // Add redraw function
+    function redrawCanvas() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw background image if exists
+        if (bgImage) {
+            ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // Redraw all elements
+        drawnElements.forEach(element => {
+            if (element.type === 'line') {
+                ctx.strokeStyle = '#FF0044';  // Neon red color
                 ctx.beginPath();
-                ctx.moveTo(element.path[0].x, element.path[0].y);
-                element.path.forEach(point => {
-                    ctx.lineTo(point.x, point.y);
-                });
+                ctx.moveTo(element.x1, element.y1);
+                ctx.lineTo(element.x2, element.y2);
                 ctx.stroke();
             } else if (element.type === 'text') {
                 ctx.font = '20px Arial';
-                ctx.fillStyle = 'red';
+                ctx.fillStyle = '#FF0044';  // Make text neon red too
                 ctx.fillText(element.text, element.x, element.y);
             }
         });
     }
 
-    function setActiveTool(buttonId) {
-        const buttons = document.querySelectorAll('.icon-button');
-        buttons.forEach(button => button.classList.remove('active'));
-        document.getElementById(buttonId).classList.add('active');
+    // Modify erase function
+    function erase(e) {
+        const pos = getMousePos(e);
+        const eraseRadius = 10;
+        
+        // Filter out elements near the eraser
+        drawnElements = drawnElements.filter(element => {
+            if (element.type === 'line') {
+                const dist = pointToLineDistance(pos, element);
+                return dist > eraseRadius;
+            } else if (element.type === 'text') {
+                const dist = Math.hypot(element.x - pos.x, element.y - pos.y);
+                return dist > eraseRadius;
+            }
+            return true;
+        });
+        
+        // Redraw canvas
+        redrawCanvas();
     }
 
-    // Handle text input
-    document.getElementById('text').addEventListener('click', () => {
-        textMode = true;
-        canvas.style.cursor = 'text';
-    });
-
-    canvas.addEventListener('click', (event) => {
-        if (textMode) {
-            const rect = canvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            createTextArea(x, y);
-        }
-    });
-
-    function handleTextInput(event) {
-        if (event.key === 'Enter') {
-            if (currentText === '') {
-                textMode = false;
-                canvas.style.cursor = 'default';
-                canvas.removeEventListener('keydown', handleTextInput);
-            } else {
-                currentText += '\n';
-            }
+    // Add helper function for line distance calculation
+    function pointToLineDistance(point, line) {
+        const A = point.x - line.x1;
+        const B = point.y - line.y1;
+        const C = line.x2 - line.x1;
+        const D = line.y2 - line.y1;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) param = dot / lenSq;
+        
+        let xx, yy;
+        
+        if (param < 0) {
+            xx = line.x1;
+            yy = line.y1;
+        } else if (param > 1) {
+            xx = line.x2;
+            yy = line.y2;
         } else {
-            currentText += event.key;
-            drawText();
+            xx = line.x1 + param * C;
+            yy = line.y1 + param * D;
         }
+        
+        return Math.hypot(point.x - xx, point.y - yy);
     }
 
-    function drawText() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (img) {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        ctx.font = '20px Arial';
-        ctx.fillStyle = 'red';
-        const lines = currentText.split('\n');
-        lines.forEach((line, index) => {
-            ctx.fillText(line, textX, textY + index * 20);
-        });
+    function resizeCanvas(image) {
+        if (!image) return;
+
+        // Get container and toolbar elements
+        const container = document.querySelector('.container');
+        const toolbar = document.querySelector('.toolbar');
+        
+        // Calculate available space
+        const containerPadding = 20; // Account for container padding
+        const maxWidth = window.innerWidth * 0.8;
+        const maxHeight = window.innerHeight - toolbar.offsetHeight - containerPadding;
+        
+        let width = image.width;
+        let height = image.height;
+
+        // Calculate scaling ratio while preserving aspect ratio
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.floor(width * ratio);
+        height = Math.floor(height * ratio);
+
+        // Set canvas dimensions
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        
+        // Reset context properties
+        ctx.strokeStyle = '#FF0044';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        // Draw the image
+        ctx.drawImage(image, 0, 0, width, height);
     }
 
-    canvas.addEventListener('click', function(e) {
-        if (isTextMode && !textStarted) {
-            textStarted = true;
-            const textInput = document.getElementById('textInput');
-            textInput.style.display = 'block';
-            textInput.style.left = e.clientX + 'px';
-            textInput.style.top = e.clientY + 'px';
-            textInput.focus();
-        }
+    // Add restart button functionality
+    const restartBtn = document.getElementById('restartBtn');
+    restartBtn.addEventListener('click', () => {
+        location.reload();
     });
 
-    textInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && e.shiftKey) {
-            // Allow new line with Shift+Enter
-            return;
-        }
-        
-        if (e.key === 'Enter' && !textInput.value.trim()) {
-            // Exit text mode on double Enter
-            finishTextInput();
-            return;
-        }
-    });
-
-    function finishTextInput() {
-        const text = textInput.value.trim();
-        if (text) {
-            ctx.font = '20px Arial';
-            ctx.fillStyle = 'red';
-            ctx.fillText(text, textX, textY);
-            drawnElements.push({ type: 'text', text, x: textX, y: textY });
-        }
-        textInput.style.display = 'none';
-        textInput.value = '';
-        textStarted = false;
-        isTextMode = false;
-    }
-
-    function createTextArea(x, y) {
-        // Remove existing textarea if any
-        if (textArea) textArea.remove();
-        
-        textArea = document.createElement('textarea');
-        textArea.style.position = 'absolute';
-        textArea.style.left = x + 'px';
-        textArea.style.top = y + 'px';
-        textArea.style.background = 'transparent';
-        textArea.style.border = '1px solid #999';
-        textArea.style.color = 'red';
-        textArea.style.padding = '0px';
-        textArea.style.margin = '0px';
-        textArea.style.overflow = 'hidden';
-        textArea.style.resize = 'none';
-        textArea.style.whiteSpace = 'pre';
-        textArea.style.outline = 'none';
-        textArea.style.font = '20px Arial';
-        document.body.appendChild(textArea);
-        textArea.focus();
-    }
-
-    function finalizeText() {
-        if (!textArea) return;
-        
-        const lines = textArea.value.split('\n');
-        const x = parseInt(textArea.style.left);
-        const y = parseInt(textArea.style.top);
-        
-        ctx.font = '20px Arial';
-        ctx.fillStyle = 'red';
-        
-        lines.forEach((line, index) => {
-            const yPos = y + (index * 24); // line height
-            drawnElements.push({
-                type: 'text',
-                text: line,
-                x: x,
-                y: yPos
-            });
-            ctx.fillText(line, x, yPos);
-        });
-        
-        textArea.remove();
-        textArea = null;
-        textMode = false;
-    }
-
-    document.addEventListener('keydown', function(e) {
-        if (!textArea) return;
-        
-        if (e.key === 'Enter') {
-            // Track consecutive empty enters
-            if (textArea.value.trim().endsWith('\n\n')) {
-                e.preventDefault();
-                finalizeText();
-                return;
-            }
-            // Allow regular enter for new line
-            return;
-        }
-        
-        if (e.key === 'Escape') {
-            // Cancel text input
-            textArea.remove();
-            textArea = null;
-            textMode = false;
-        }
-    });
-
-    textBtn.addEventListener('click', () => {
-        textMode = !textMode;
-        if (!textMode && textArea) {
-            finalizeText();
-        }
-        canvas.style.cursor = textMode ? 'text' : 'default';
-    });
-
-    canvas.addEventListener('click', function(e) {
-        if (textMode) {
-            const rect = canvas.getBoundingClientRect();
-            textPosition.x = e.clientX - rect.left;
-            textPosition.y = e.clientY - rect.top;
-            currentText = '';
-            isTyping = true;
-            canvas.focus();
-        }
-    });
-
-    canvas.addEventListener('keydown', function(e) {
-        if (!isTyping) return;
-
-        e.preventDefault();
-
-        if (e.key === 'Enter') {
-            finishText();
-        } else if (e.key === 'Backspace') {
-            currentText = currentText.slice(0, -1);
-            redrawWithCurrentText();
-        } else if (e.key === 'Escape') {
-            isTyping = false;
-            currentText = '';
-            redraw();
-        } else if (e.key.length === 1) {
-            currentText += e.key;
-            redrawWithCurrentText();
-        }
-    });
-
-    function finishText() {
-        if (currentText) {
-            drawnElements.push({
-                type: 'text',
-                text: currentText,
-                x: textPosition.x,
-                y: textPosition.y
-            });
-        }
-        isTyping = false;
-        currentText = '';
-        redraw();
-    }
-
-    function redrawWithCurrentText() {
-        redraw();
-        if (currentText) {
-            ctx.font = '20px Arial';
-            ctx.fillStyle = 'red';
-            ctx.fillText(currentText, textPosition.x, textPosition.y);
-        }
-    }
-
-    function redraw() {
-        drawAllElements();
-    }
-
-    function handleTextInput(e) {
-        if (!isTyping) return;
-        e.preventDefault();
-
-        const now = Date.now();
-        if (e.key === 'Enter') {
-            if (now - lastEnterTime < 500) {
-                // Double Enter detected - finish text input
-                finalizeText();
-                return;
-            }
-            // Single Enter - add new line
-            textLines.push(currentLine);
-            currentLine = '';
-            lastEnterTime = now;
-        } else if (e.key === 'Backspace') {
-            if (currentLine.length > 0) {
-                currentLine = currentLine.slice(0, -1);
-            } else if (textLines.length > 0) {
-                currentLine = textLines.pop();
-            }
-        } else if (e.key.length === 1) {
-            currentLine += e.key;
-        }
-        
-        redrawText();
-    }
-
-    function redrawText() {
-        redraw();
-        ctx.font = '20px Arial';
-        ctx.fillStyle = 'red';
-        
-        // Draw completed lines
-        textLines.forEach((line, index) => {
-            ctx.fillText(line, textX, textY + (index * LINE_HEIGHT));
-        });
-        
-        // Draw current line
-        ctx.fillText(currentLine, textX, textY + (textLines.length * LINE_HEIGHT));
-    }
-
-    function finalizeText() {
-        if (currentLine) {
-            textLines.push(currentLine);
-        }
-        
-        if (textLines.length > 0) {
-            drawnElements.push({
-                type: 'multilineText',
-                lines: [...textLines],
-                x: textX,
-                y: textY,
-                lineHeight: LINE_HEIGHT
-            });
-        }
-        
-        // Reset text state
-        textLines = [];
-        currentLine = '';
-        isTyping = false;
-        redraw();
-    }
-
-    canvas.addEventListener('click', function(e) {
-        if (textMode) {
-            const rect = canvas.getBoundingClientRect();
-            textX = e.clientX - rect.left;
-            textY = e.clientY - rect.top;
-            isTyping = true;
-            textLines = [];
-            currentLine = '';
-            canvas.focus();
-        }
-    });
-
-    canvas.addEventListener('keydown', handleTextInput);
+    // Initialize canvas
+    initCanvas();
 });
