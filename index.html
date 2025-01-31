@@ -67,212 +67,29 @@
 <body>
     <div class="container">
         <div id="title">Komento</div>
-        <canvas id="canvas" tabindex="0"></canvas>
-        <textarea class="text-input-overlay" id="textInput" style="display:none; position:absolute;"></textarea>
+        <canvas id="canvas"></canvas>
         <div class="toolbar">
-            <button id="uploadBtn" aria-label="Upload"><img src="icons/upload-icon.png" alt="Upload"></button>
-            <button id="drawBtn" aria-label="Draw"><img src="icons/pen-icon.png" alt="Draw"></button>
-            <button id="textBtn" aria-label="Text"><img src="icons/text-icon.png" alt="Text"></button>
-            <button id="eraseBtn" aria-label="Erase"><img src="icons/erase-icon.png" alt="Erase"></button>
-            <button id="cameraBtn" aria-label="Camera"><img src="icons/camera-icon.png" alt="Camera"></button>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <button id="uploadBtn"><img src="icons/upload-icon.png" alt="Upload"></button>
+            <button id="drawBtn"><img src="icons/pen-icon.png" alt="Draw"></button>
+            <button id="textBtn"><img src="icons/text-icon.png" alt="Text"></button>
+            <button id="eraseBtn"><img src="icons/erase-icon.png" alt="Erase"></button>
+            <button id="cameraBtn"><img src="icons/download-icon.png" alt="Download"></button>
         </div>
+        <button id="restartBtn" style="
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+        ">RESTART</button>
     </div>
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const drawBtn = document.getElementById('drawBtn');
-        const textBtn = document.getElementById('textBtn');
-        const eraseBtn = document.getElementById('eraseBtn');
-        const cameraBtn = document.getElementById('cameraBtn');
-
-        let isDrawing = false;
-        let mode = null;
-        let markups = [];
-        let bgImage = null;
-        let imageX = 0, imageY = 0, imageWidth = 0, imageHeight = 0;
-        let currentFileName = "canvas";
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            redraw();
-        }
-
-        function redraw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (bgImage) {
-                drawImageProportional();
-            }
-            markups.forEach(({ type, content }) => {
-                if (type === 'line') {
-                    ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    content.forEach(([x, y], index) => {
-                        if (index === 0) ctx.moveTo(x, y);
-                        else ctx.lineTo(x, y);
-                    });
-                    ctx.stroke();
-                } else if (type === 'text') {
-                    ctx.font = '20px Arial';
-                    ctx.fillStyle = 'red';
-                    const lineHeight = 24; // Adjust this value as needed
-                    content.lines.forEach((line, index) => {
-                        ctx.fillText(line, content.x, content.y + index * lineHeight);
-                    });
-                }
-            });
-        }
-
-        function drawImageProportional() {
-            const canvasRatio = canvas.width / canvas.height;
-            const imageRatio = bgImage.width / bgImage.height;
-
-            if (imageRatio > canvasRatio) {
-                // Fit to width
-                imageWidth = canvas.width;
-                imageHeight = canvas.width / imageRatio;
-            } else {
-                // Fit to height
-                imageHeight = canvas.height;
-                imageWidth = canvas.height * imageRatio;
-            }
-
-            imageX = (canvas.width - imageWidth) / 2;
-            imageY = (canvas.height - imageHeight) / 2;
-
-            ctx.drawImage(bgImage, imageX, imageY, imageWidth, imageHeight);
-        }
-
-        function startDrawing(e) {
-            if (mode !== 'draw') return;
-            isDrawing = true;
-            const [x, y] = [e.offsetX, e.offsetY];
-            markups.push({ type: 'line', content: [[x, y]] });
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            const [x, y] = [e.offsetX, e.offsetY];
-            markups[markups.length - 1].content.push([x, y]);
-            redraw();
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-        }
-
-        function addText(e) {
-            if (mode !== 'text') return;
-            const [x, y] = [e.offsetX, e.offsetY];
-
-            const textarea = document.createElement('textarea');
-            textarea.style.position = 'absolute';
-            textarea.style.left = `${x + canvas.offsetLeft}px`;
-            textarea.style.top = `${y + canvas.offsetTop}px`;
-            textarea.style.font = '20px Arial';
-            textarea.style.color = 'red';
-            textarea.style.border = '1px solid #ddd';
-            textarea.style.background = 'transparent';
-            textarea.style.zIndex = '1000';
-            textarea.rows = 3; // Set initial rows for the textarea
-            textarea.cols = 20; // Set initial columns for the textarea
-
-            document.body.appendChild(textarea);
-            textarea.focus();
-
-            textarea.addEventListener('blur', () => {
-                const text = textarea.value;
-                if (text.trim()) {
-                    const lines = text.split('\n'); // Split text into lines
-                    markups.push({ type: 'text', content: { lines, x, y } });
-                }
-                redraw();
-                document.body.removeChild(textarea);
-            });
-
-            // Handle Enter key for multi-line input
-            textarea.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // Prevent default behavior of Enter key
-                    textarea.blur(); // Blur the textarea to save the text
-                }
-            });
-        }
-
-        function handleErase(e) {
-            if (mode !== 'erase') return;
-            const [x, y] = [e.offsetX, e.offsetY];
-            for (let i = markups.length - 1; i >= 0; i--) {
-                const markup = markups[i];
-                if (markup.type === 'text') {
-                    const { content } = markup;
-                    if (Math.abs(content.x - x) < 20 && Math.abs(content.y - y) < 20) {
-                        markups.splice(i, 1);
-                        break;
-                    }
-                } else if (markup.type === 'line') {
-                    if (markup.content.some(([lx, ly]) => Math.abs(lx - x) < 10 && Math.abs(ly - y) < 10)) {
-                        markups.splice(i, 1);
-                        break;
-                    }
-                }
-            }
-            redraw();
-        }
-
-        function resetMode() {
-            mode = null;
-            isDrawing = false;
-            redraw();
-        }
-
-        uploadBtn.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const img = new Image();
-                    img.onload = () => {
-                        bgImage = img;
-                        currentFileName = file.name.split('.').slice(0, -1).join('.');
-                        resizeCanvas();
-                    };
-                    img.src = URL.createObjectURL(file);
-                }
-            });
-            input.click();
-        });
-
-        drawBtn.addEventListener('click', () => mode = 'draw');
-        textBtn.addEventListener('click', () => mode = 'text');
-        eraseBtn.addEventListener('click', () => mode = 'erase');
-        cameraBtn.addEventListener('click', () => {
-            const timestamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0];
-            const fileName = `${currentFileName}-${timestamp}.png`;
-
-            const link = document.createElement('a');
-            link.download = fileName;
-            link.href = canvas.toDataURL();
-            link.click();
-        });
-
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('click', addText);
-        canvas.addEventListener('click', handleErase);
-        window.addEventListener('resize', resizeCanvas);
-
-        // Cancel any tool with ESC key
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') resetMode();
-        });
-
-        resizeCanvas();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
+
