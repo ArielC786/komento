@@ -552,8 +552,3 @@ document.addEventListener('DOMContentLoaded', function () {
     initCanvas();
 });
 
-
-    // Initialize canvas
-    initCanvas();
-});
-
