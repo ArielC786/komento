@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Modify erase function
+    // Modify erase function to better handle text elements
     function erase(e) {
         const pos = getMousePos(e);
         const eraseRadius = 10;
@@ -334,8 +334,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 const dist = pointToLineDistance(pos, element);
                 return dist > eraseRadius;
             } else if (element.type === 'text') {
-                const dist = Math.hypot(element.x - pos.x, element.y - pos.y);
-                return dist > eraseRadius;
+                // Get text width to calculate bounding box
+                ctx.font = '20px Arial';
+                const textWidth = ctx.measureText(element.text).width;
+                const textHeight = 20; // Approximate text height
+                
+                // Check if click is within text bounding box
+                const textLeft = element.x;
+                const textRight = element.x + textWidth;
+                const textTop = element.y - textHeight;
+                const textBottom = element.y;
+                
+                // If click is within text bounds, remove the text
+                if (pos.x >= textLeft && pos.x <= textRight && 
+                    pos.y >= textTop && pos.y <= textBottom) {
+                    return false; // Remove text element
+                }
+                return true; // Keep text element
             }
             return true;
         });
@@ -417,3 +432,4 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize canvas
     initCanvas();
 });
+
