@@ -429,6 +429,130 @@ document.addEventListener('DOMContentLoaded', function () {
         location.reload();
     });
 
+    // Add clipboard paste handler
+    document.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        
+        for (let item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Clear existing drawings
+                        drawnElements = [];
+                        bgImage = img;
+                        resizeCanvas(img);
+                    };
+                    img.src = event.target.result;
+                };
+                
+                reader.readAsDataURL(blob);
+                break;
+            }
+        }
+    });
+
+    // Add context menu handler
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();  // Prevent default context menu
+        
+        // Remove any existing context menu
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            document.body.removeChild(existingMenu);
+        }
+        
+        // Create custom context menu
+        const contextMenu = document.createElement('div');
+        contextMenu.className = 'context-menu';
+        contextMenu.style.cssText = `
+            position: fixed;
+            left: ${e.clientX}px;
+            top: ${e.clientY}px;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 2px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            transform: scale(0.8);
+            transform-origin: top left;
+        `;
+        
+        // Add Paste option
+        const pasteOption = document.createElement('div');
+        pasteOption.textContent = 'Paste';
+        pasteOption.style.cssText = `
+            padding: 3px 6px;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+        `;
+        
+        pasteOption.onmouseover = () => {
+            pasteOption.style.backgroundColor = '#f0f0f0';
+        };
+        
+        pasteOption.onmouseout = () => {
+            pasteOption.style.backgroundColor = 'white';
+        };
+        
+        pasteOption.onclick = () => {
+            navigator.clipboard.read().then(data => {
+                for (const item of data) {
+                    if (item.types.includes('image/png')) {
+                        item.getType('image/png').then(blob => {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    drawnElements = [];
+                                    bgImage = img;
+                                    resizeCanvas(img);
+                                };
+                                img.src = event.target.result;
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                }
+            });
+            removeContextMenu();
+        };
+        
+        contextMenu.appendChild(pasteOption);
+        document.body.appendChild(contextMenu);
+        
+        // Function to remove context menu
+        function removeContextMenu() {
+            if (contextMenu && contextMenu.parentNode) {
+                document.body.removeChild(contextMenu);
+            }
+        }
+        
+        // Remove menu on any click outside
+        setTimeout(() => {
+            const clickHandler = (event) => {
+                if (!contextMenu.contains(event.target)) {
+                    removeContextMenu();
+                    document.removeEventListener('click', clickHandler);
+                    document.removeEventListener('contextmenu', clickHandler);
+                }
+            };
+            
+            document.addEventListener('click', clickHandler);
+            document.addEventListener('contextmenu', clickHandler);
+        }, 0);
+    });
+
+    // Initialize canvas
+    initCanvas();
+});
+
+
     // Initialize canvas
     initCanvas();
 });
