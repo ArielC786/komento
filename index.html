@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Komento</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         * {
             margin: 0;
@@ -66,15 +67,15 @@
 </head>
 <body>
     <div class="container">
-        <div id="title">Komento</div>
+        <div id="title"><span class="title-main">Komento</span><span class="title-sub">© 2025 ArielC</span></div>
         <canvas id="canvas"></canvas>
-        <div class="toolbar">
+        <div class="toolbar" role="toolbar" aria-label="Canvas tools">
             <input type="file" id="fileInput" accept="image/*" style="display: none;">
-            <button id="uploadBtn"><img src="icons/upload-icon.png" alt="Upload"></button>
-            <button id="drawBtn"><img src="icons/pen-icon.png" alt="Draw"></button>
-            <button id="textBtn"><img src="icons/text-icon.png" alt="Text"></button>
-            <button id="eraseBtn"><img src="icons/erase-icon.png" alt="Erase"></button>
-            <button id="cameraBtn"><img src="icons/download-icon.png" alt="Download"></button>
+            <button id="uploadBtn" class="icon-button" aria-label="Upload image"><img src="icons/upload-icon.png" alt="Upload"></button>
+            <button id="drawBtn" class="icon-button" aria-label="Draw"><img src="icons/pen-icon.png" alt="Draw"></button>
+            <button id="textBtn" class="icon-button" aria-label="Text"><img src="icons/text-icon.png" alt="Text"></button>
+            <button id="eraseBtn" class="icon-button" aria-label="Erase"><img src="icons/erase-icon.png" alt="Erase"></button>
+            <button id="cameraBtn" class="icon-button" aria-label="Download"><img src="icons/download-icon.png" alt="Download"></button>
         </div>
         <button id="restartBtn" style="
             position: fixed;
@@ -92,4 +93,5 @@
     <script src="script.js"></script>
 </body>
 </html>
+
 
