@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const drawBtn = document.getElementById('drawBtn');
     const cameraBtn = document.getElementById('cameraBtn');
     const eraseBtn = document.getElementById('eraseBtn');
+    const sizePicker = document.getElementById('sizePicker');
 
     // State variables
     let drawing = false;
@@ -19,6 +20,15 @@ document.addEventListener('DOMContentLoaded', function () {
     let saveCounter = 1;
     let bgImage = null;
     let eraseMode = false;
+    let strokeColor = '#FF0044';
+    let strokeWidth = 2;
+    let fontSize = 20;
+    const activeClass = 'active';
+    let draggingText = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let textInputOpen = false;
+    let currentTextInputContainer = null;
 
     // Add drawnElements array to track drawings
     let drawnElements = [];
@@ -34,9 +44,8 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.width = displayWidth;
         canvas.height = displayHeight;
         
-        // Change stroke color to neon red
-        ctx.strokeStyle = '#FF0044';  // Neon red color
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = strokeWidth;
         ctx.lineCap = 'round';
     }
 
@@ -50,10 +59,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Drawing handlers
+    function setActiveTool(btn) {
+        [uploadBtn, drawBtn, textBtn, eraseBtn, cameraBtn].forEach(b => b.classList.remove(activeClass));
+        if (btn) btn.classList.add(activeClass);
+    }
+
     drawBtn.addEventListener('click', () => {
         drawing = true;
         textMode = false;
         eraseMode = false;
+        setActiveTool(drawBtn);
         canvas.style.cursor = 'crosshair';
     });
 
@@ -65,11 +80,19 @@ document.addEventListener('DOMContentLoaded', function () {
             isDrawing = true;
             const pos = getMousePos(e);
             [lastX, lastY] = [pos.x, pos.y];
+        } else if (textMode) {
+            const pos = getMousePos(e);
+            const target = findTextAtPos(pos);
+            if (target) {
+                draggingText = target;
+                dragOffsetX = pos.x - target.x;
+                dragOffsetY = pos.y - target.y;
+            }
         }
     });
 
     canvas.addEventListener('mousemove', (e) => {
-        if (!isDrawing) return;
+        if (!isDrawing && !draggingText) return;
         
         if (eraseMode) {
             erase(e);
@@ -80,24 +103,31 @@ document.addEventListener('DOMContentLoaded', function () {
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
             
-            // Store the drawn line
             drawnElements.push({
                 type: 'line',
                 x1: lastX,
                 y1: lastY,
                 x2: pos.x,
-                y2: pos.y
+                y2: pos.y,
+                color: strokeColor,
+                width: strokeWidth
             });
             
             [lastX, lastY] = [pos.x, pos.y];
+        } else if (textMode && draggingText) {
+            const pos = getMousePos(e);
+            draggingText.x = pos.x - dragOffsetX;
+            draggingText.y = pos.y - dragOffsetY;
+            redrawCanvas();
         }
     });
 
-    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseup', () => { isDrawing = false; draggingText = null; });
     canvas.addEventListener('mouseout', () => isDrawing = false);
 
     // Upload functionality
     uploadBtn.addEventListener('click', () => {
+        setActiveTool(uploadBtn);
         fileInput.value = '';
         fileInput.click();
     });
@@ -119,6 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
         drawing = false;
         textMode = true;
         eraseMode = false;
+        setActiveTool(textBtn);
         canvas.style.cursor = 'text';
     });
 
@@ -172,22 +203,30 @@ document.addEventListener('DOMContentLoaded', function () {
         inputContainer.appendChild(okButton);
         inputContainer.appendChild(cancelButton);
 
-        // Add container to document
         document.body.appendChild(inputContainer);
-
-        // Focus the input
         textInput.focus();
+        textInputOpen = true;
+        currentTextInputContainer = inputContainer;
 
         // Return promise for handling the result
         return new Promise((resolve, reject) => {
+            okButton.disabled = true;
+            textInput.addEventListener('input', () => {
+                okButton.disabled = textInput.value.trim().length === 0;
+            });
             okButton.onclick = () => {
-                const text = textInput.value;
+                const text = textInput.value.trim();
+                if (text.length === 0) return;
                 document.body.removeChild(inputContainer);
+                textInputOpen = false;
+                currentTextInputContainer = null;
                 resolve(text);
             };
 
             cancelButton.onclick = () => {
                 document.body.removeChild(inputContainer);
+                textInputOpen = false;
+                currentTextInputContainer = null;
                 resolve(null);
             };
 
@@ -210,18 +249,21 @@ document.addEventListener('DOMContentLoaded', function () {
     // Modify the text click handler
     canvas.addEventListener('click', async (e) => {
         if (!textMode) return;
+        if (textInputOpen) return;
         const pos = getMousePos(e);
+        if (findTextAtPos(pos)) return;
         const text = await createTextInput(e.clientX, e.clientY);
         if (text) {
-            ctx.font = '20px Arial';
-            ctx.fillStyle = '#FF0044';
-            // Add 5px to the Y position
+            ctx.font = `${fontSize}px Arial`;
+            ctx.fillStyle = strokeColor;
             ctx.fillText(text, pos.x, pos.y + 5);
             drawnElements.push({
                 type: 'text',
                 text: text,
                 x: pos.x,
-                y: pos.y + 5  // Store the offset position
+                y: pos.y + 5,
+                color: strokeColor,
+                size: fontSize
             });
             redrawCanvas();
         }
@@ -229,6 +271,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Modify the camera/download button functionality
     cameraBtn.addEventListener('click', () => {
+        setActiveTool(cameraBtn);
         // Create a temporary canvas to add the text stamp
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -265,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Set text style
         tempCtx.font = '16px Arial';
-        tempCtx.fillStyle = '#FF0044';
+        tempCtx.fillStyle = strokeColor;
         
         // Position text at bottom right corner with padding
         const padding = 20;
@@ -290,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
         drawing = false;
         textMode = false;
         eraseMode = true;
-        // Use a cell cursor which looks similar to an eraser
+        setActiveTool(eraseBtn);
         canvas.style.cursor = 'cell';
         // Alternative cursors you could use:
         // canvas.style.cursor = 'crosshair';
@@ -310,14 +353,15 @@ document.addEventListener('DOMContentLoaded', function () {
         // Redraw all elements
         drawnElements.forEach(element => {
             if (element.type === 'line') {
-                ctx.strokeStyle = '#FF0044';  // Neon red color
+                ctx.strokeStyle = element.color || strokeColor;
+                ctx.lineWidth = element.width || strokeWidth;
                 ctx.beginPath();
                 ctx.moveTo(element.x1, element.y1);
                 ctx.lineTo(element.x2, element.y2);
                 ctx.stroke();
             } else if (element.type === 'text') {
-                ctx.font = '20px Arial';
-                ctx.fillStyle = '#FF0044';  // Make text neon red too
+                ctx.font = `${element.size || fontSize}px Arial`;
+                ctx.fillStyle = element.color || strokeColor;
                 ctx.fillText(element.text, element.x, element.y);
             }
         });
@@ -335,9 +379,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 return dist > eraseRadius;
             } else if (element.type === 'text') {
                 // Get text width to calculate bounding box
-                ctx.font = '20px Arial';
+                ctx.font = `${element.size || fontSize}px Arial`;
                 const textWidth = ctx.measureText(element.text).width;
-                const textHeight = 20; // Approximate text height
+                const textHeight = element.size || fontSize;
                 
                 // Check if click is within text bounding box
                 const textLeft = element.x;
@@ -415,8 +459,8 @@ document.addEventListener('DOMContentLoaded', function () {
         canvas.style.height = `${height}px`;
         
         // Reset context properties
-        ctx.strokeStyle = '#FF0044';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = strokeWidth;
         ctx.lineCap = 'round';
 
         // Draw the image
@@ -549,6 +593,31 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Initialize canvas
+
+    
+
+    
+    function findTextAtPos(pos) {
+        for (let i = drawnElements.length - 1; i >= 0; i--) {
+            const element = drawnElements[i];
+            if (element.type !== 'text') continue;
+            ctx.font = `${element.size || fontSize}px Arial`;
+            const textWidth = ctx.measureText(element.text).width;
+            const textHeight = element.size || fontSize;
+            const left = element.x;
+            const right = element.x + textWidth;
+            const top = element.y - textHeight;
+            const bottom = element.y;
+            if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    
+
     initCanvas();
 });
+
 
