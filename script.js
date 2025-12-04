@@ -52,9 +52,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Mouse position calculation
     function getMousePos(e) {
         const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
         };
     }
 
@@ -307,7 +309,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const stampText = `${originalFilename}.jpg ${dateStr} edg`;
         
         // Set text style
-        tempCtx.font = '16px Arial';
+        const stampFontSize = 16;
+        tempCtx.font = `${stampFontSize}px Arial`;
         tempCtx.fillStyle = strokeColor;
         
         // Position text at bottom right corner with padding
@@ -315,8 +318,21 @@ document.addEventListener('DOMContentLoaded', function () {
         const textWidth = tempCtx.measureText(stampText).width;
         const textX = tempCanvas.width - textWidth - padding;
         const textY = tempCanvas.height - padding;
+        const textHeight = stampFontSize;
+        const boxPadX = 6;
+        const boxPadY = 4;
+        const boxX = textX - boxPadX;
+        const boxY = textY - textHeight - boxPadY;
+        const boxW = textWidth + boxPadX * 2;
+        const boxH = textHeight + boxPadY * 2;
+
+        // Draw white rectangle behind stamp text for readability
+        tempCtx.save();
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(boxX, boxY, boxW, boxH);
+        tempCtx.restore();
         
-        // Add text to canvas
+        // Add text to canvas on top of white background
         tempCtx.fillText(stampText, textX, textY);
         
         // Create download link with jpg extension
