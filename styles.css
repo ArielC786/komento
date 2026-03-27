@@ -1,0 +1,150 @@
+/* General Reset */
+html, body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #f5f5f5;
+    font-family: Arial, sans-serif;
+}
+
+/* Add these styles to styles.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body, html {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+.container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #f8f8f8;
+}
+#canvas {
+    display: block;
+    margin: 0 auto;
+    background: #fff;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.toolbar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+}
+.toolbar button {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.toolbar img {
+    width: 30px;
+    height: 30px;
+}
+#title {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 50px;
+    font-weight: 100;
+    color: #333;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-family: 'Arial', sans-serif;
+}
+
+#copyright {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    font-size: 12px;
+    color: #777;
+    font-family: Arial, sans-serif;
+}
+
+/* Title Styling */
+.app-title {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    font-size: 50px;
+    font-weight: 200;
+    color: #333;
+    writing-mode: vertical-rl;
+    text-align: center;
+}
+
+/* Canvas Container */
+.canvas-container {
+    flex-grow: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    max-width: 95%;
+    max-height: 90%;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Toolbar */
+.toolbar {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.icon-button {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.icon-button img {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-button.active img {
+    border: 2px solid red;
+    border-radius: 4px;
+}
+body {
+    white-space: pre-wrap; /* or pre-line if you want to preserve existing line breaks */
+    word-break: break-all; /* Optional: allows breaking words if necessary */
+}
+
+.text-input-overlay {
+    position: absolute;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 20px;
+    color: red;
+    resize: both;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Komento</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #f8f8f8;
+        }
+        #canvas {
+            display: block;
+            margin: 0 auto;
+            background: #fff;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+        }
+        .toolbar button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .toolbar img {
+            width: 30px;
+            height: 30px;
+        }
+        #title {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 80px;
+            font-weight: 100;
+            color: #333;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            font-family: 'Arial', sans-serif;
+        }
+        #copyright {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    font-size: 12px;
+    color: #777;
+    font-family: Arial, sans-serif;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="title"><span class="title-main">Komento</span></div>
+        <div id="copyright">© 2025 ArielC</div>
+        <canvas id="canvas"></canvas>
+        <div class="toolbar" role="toolbar" aria-label="Canvas tools">
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <button id="uploadBtn" class="icon-button" aria-label="Upload image"><img src="icons/upload-icon.png" alt="Upload"></button>
+            <button id="drawBtn" class="icon-button" aria-label="Draw"><img src="icons/pen-icon.png" alt="Draw"></button>
+            <button id="textBtn" class="icon-button" aria-label="Text"><img src="icons/text-icon.png" alt="Text"></button>
+            <button id="eraseBtn" class="icon-button" aria-label="Erase"><img src="icons/erase-icon.png" alt="Erase"></button>
+            <button id="cameraBtn" class="icon-button" aria-label="Download"><img src="icons/download-icon.png" alt="Download"></button>
+        </div>
+        <button id="restartBtn" style="
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+        ">RESTART</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
