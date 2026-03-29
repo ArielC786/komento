@@ -4,11 +4,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const ctx = canvas.getContext('2d');
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
+    const selectBtn = document.getElementById('selectBtn');
     const textBtn = document.getElementById('textBtn');
     const drawBtn = document.getElementById('drawBtn');
     const cameraBtn = document.getElementById('cameraBtn');
     const eraseBtn = document.getElementById('eraseBtn');
     const sizePicker = document.getElementById('sizePicker');
+    const colorPalette = document.getElementById('colorPalette');
+    const strokeSize = document.getElementById('strokeSize');
+    const strokeSizeValue = document.getElementById('strokeSizeValue');
+    const undoBtn = document.getElementById('undoBtn');
+    const defaultStrokeWidth = strokeSize ? Number(strokeSize.value) : 2;
 
     // State variables
     let drawing = false;
@@ -21,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let bgImage = null;
     let eraseMode = false;
     let strokeColor = '#FF0044';
-    let strokeWidth = 2;
+    let strokeWidth = defaultStrokeWidth;
     let fontSize = 20;
     const activeClass = 'active';
     let draggingText = null;
@@ -33,6 +39,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Add drawnElements array to track drawings
     let drawnElements = [];
+    let currentStroke = null;
+    let selectMode = false;
+    let draggingSelection = null;
+    let selectionOffsetX = 0;
+    let selectionOffsetY = 0;
+    let lastDragX = 0;
+    let lastDragY = 0;
 
     function getTextMetrics(text, size) {
         const lines = String(text).split('\n');
@@ -87,25 +100,201 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Drawing handlers
     function setActiveTool(btn) {
-        [uploadBtn, drawBtn, textBtn, eraseBtn, cameraBtn].forEach(b => b.classList.remove(activeClass));
+        [selectBtn, uploadBtn, drawBtn, textBtn, eraseBtn, cameraBtn].forEach(b => {
+            if (b) b.classList.remove(activeClass);
+        });
         if (btn) btn.classList.add(activeClass);
     }
 
+    function translateElement(element, dx, dy) {
+        if (!element) return;
+        if (element.type === 'path') {
+            const pts = element.points || [];
+            for (const p of pts) {
+                p.x += dx;
+                p.y += dy;
+            }
+            return;
+        }
+        if (element.type === 'dot') {
+            element.x += dx;
+            element.y += dy;
+            return;
+        }
+        if (element.type === 'text') {
+            element.x += dx;
+            element.y += dy;
+        }
+    }
+
+    function findDrawableAtPos(pos) {
+        for (let i = drawnElements.length - 1; i >= 0; i--) {
+            const element = drawnElements[i];
+
+            if (element.type === 'text') {
+                const size = element.size || fontSize;
+                const { maxWidth, height } = getTextMetrics(element.text, size);
+                const left = element.x;
+                const right = element.x + maxWidth;
+                const top = element.y - size;
+                const bottom = element.y - size + height;
+                if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) return element;
+                continue;
+            }
+
+            const width = element.width || strokeWidth;
+            const threshold = Math.max(10, width * 1.25);
+
+            if (element.type === 'dot') {
+                if (Math.hypot(pos.x - element.x, pos.y - element.y) <= threshold) return element;
+                continue;
+            }
+
+            if (element.type === 'path') {
+                const points = element.points || [];
+                if (points.length <= 1) {
+                    const p = points[0];
+                    if (!p) continue;
+                    if (Math.hypot(pos.x - p.x, pos.y - p.y) <= threshold) return element;
+                    continue;
+                }
+                for (let j = 0; j < points.length - 1; j++) {
+                    const segment = { x1: points[j].x, y1: points[j].y, x2: points[j + 1].x, y2: points[j + 1].y };
+                    if (pointToLineDistance(pos, segment) <= threshold) return element;
+                }
+            }
+        }
+        return null;
+    }
+
+    function setSelectMode() {
+        selectMode = true;
+        drawing = false;
+        textMode = false;
+        eraseMode = false;
+        isDrawing = false;
+        currentStroke = null;
+        draggingText = null;
+        draggingSelection = null;
+        setActiveTool(selectBtn);
+        canvas.style.cursor = 'default';
+    }
+
+    if (selectBtn) {
+        selectBtn.addEventListener('click', setSelectMode);
+    }
+
+    function undoLastAction() {
+        if (isDrawing && currentStroke) {
+            currentStroke = null;
+            isDrawing = false;
+            return;
+        }
+        if (drawnElements.length === 0) return;
+        drawnElements.pop();
+        redrawCanvas();
+    }
+
+    if (undoBtn) undoBtn.addEventListener('click', undoLastAction);
+
+    function setStrokeColor(color) {
+        strokeColor = color;
+        ctx.strokeStyle = strokeColor;
+
+        if (colorPalette) {
+            const swatches = colorPalette.querySelectorAll('.color-swatch');
+            swatches.forEach((btn) => {
+                const isSelected = (btn.getAttribute('data-color') || '').toLowerCase() === String(color).toLowerCase();
+                btn.classList.toggle('selected', isSelected);
+            });
+        }
+    }
+
+    if (colorPalette) {
+        const swatches = colorPalette.querySelectorAll('.color-swatch');
+        swatches.forEach((btn) => {
+            const color = btn.getAttribute('data-color');
+            if (color) btn.style.backgroundColor = color;
+            btn.addEventListener('click', () => {
+                if (!color) return;
+                setStrokeColor(color);
+            });
+        });
+        setStrokeColor(strokeColor);
+    }
+
+    function setStrokeWidth(width) {
+        const next = Math.max(1, Math.min(30, Number(width) || 1));
+        strokeWidth = next;
+        ctx.lineWidth = strokeWidth;
+        if (strokeSizeValue) strokeSizeValue.textContent = String(strokeWidth);
+        if (strokeSize) strokeSize.value = String(strokeWidth);
+    }
+
+    if (strokeSize) {
+        strokeSize.addEventListener('input', () => setStrokeWidth(strokeSize.value));
+        setStrokeWidth(strokeSize.value);
+    } else {
+        setStrokeWidth(strokeWidth);
+    }
+
     drawBtn.addEventListener('click', () => {
+        selectMode = false;
         drawing = true;
         textMode = false;
         eraseMode = false;
         setActiveTool(drawBtn);
         canvas.style.cursor = 'crosshair';
+        if (colorPalette) colorPalette.classList.remove('palette-disabled');
+        setStrokeWidth(defaultStrokeWidth);
     });
 
+    function finalizeCurrentStroke() {
+        if (!currentStroke) return;
+        if (currentStroke.points.length <= 1) {
+            const p = currentStroke.points[0];
+            drawnElements.push({
+                type: 'dot',
+                x: p.x,
+                y: p.y,
+                color: currentStroke.color,
+                width: currentStroke.width
+            });
+        } else {
+            drawnElements.push(currentStroke);
+        }
+        currentStroke = null;
+        redrawCanvas();
+    }
+
     canvas.addEventListener('mousedown', (e) => {
+        if (selectMode) {
+            const pos = getMousePos(e);
+            const target = findDrawableAtPos(pos);
+            if (target) {
+                draggingSelection = target;
+                if (target.type === 'text') {
+                    selectionOffsetX = pos.x - target.x;
+                    selectionOffsetY = pos.y - target.y;
+                } else {
+                    lastDragX = pos.x;
+                    lastDragY = pos.y;
+                }
+            }
+            return;
+        }
         if (eraseMode) {
             isDrawing = true;
             erase(e);
         } else if (drawing) {
             isDrawing = true;
             const pos = getMousePos(e);
+            currentStroke = {
+                type: 'path',
+                points: [{ x: pos.x, y: pos.y }],
+                color: strokeColor,
+                width: strokeWidth
+            };
             [lastX, lastY] = [pos.x, pos.y];
         } else if (textMode) {
             const pos = getMousePos(e);
@@ -119,26 +308,41 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     canvas.addEventListener('mousemove', (e) => {
-        if (!isDrawing && !draggingText) return;
+        if (!isDrawing && !draggingText && !draggingSelection) return;
+
+        if (draggingSelection) {
+            const pos = getMousePos(e);
+            if (draggingSelection.type === 'text') {
+                draggingSelection.x = pos.x - selectionOffsetX;
+                draggingSelection.y = pos.y - selectionOffsetY;
+            } else {
+                const dx = pos.x - lastDragX;
+                const dy = pos.y - lastDragY;
+                translateElement(draggingSelection, dx, dy);
+                lastDragX = pos.x;
+                lastDragY = pos.y;
+            }
+            redrawCanvas();
+            return;
+        }
         
         if (eraseMode) {
             erase(e);
         } else if (drawing) {
             const pos = getMousePos(e);
+            if (!currentStroke) {
+                currentStroke = {
+                    type: 'path',
+                    points: [{ x: lastX, y: lastY }],
+                    color: strokeColor,
+                    width: strokeWidth
+                };
+            }
             ctx.beginPath();
             ctx.moveTo(lastX, lastY);
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
-            
-            drawnElements.push({
-                type: 'line',
-                x1: lastX,
-                y1: lastY,
-                x2: pos.x,
-                y2: pos.y,
-                color: strokeColor,
-                width: strokeWidth
-            });
+            currentStroke.points.push({ x: pos.x, y: pos.y });
             
             [lastX, lastY] = [pos.x, pos.y];
         } else if (textMode && draggingText) {
@@ -149,11 +353,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    canvas.addEventListener('mouseup', () => { isDrawing = false; draggingText = null; });
-    canvas.addEventListener('mouseout', () => isDrawing = false);
+    canvas.addEventListener('mouseup', () => {
+        if (drawing && isDrawing) finalizeCurrentStroke();
+        isDrawing = false;
+        draggingText = null;
+        draggingSelection = null;
+    });
+    canvas.addEventListener('mouseout', () => {
+        if (drawing && isDrawing) finalizeCurrentStroke();
+        isDrawing = false;
+        draggingSelection = null;
+    });
 
     // Upload functionality
     uploadBtn.addEventListener('click', () => {
+        selectMode = false;
         setActiveTool(uploadBtn);
         fileInput.value = '';
         fileInput.click();
@@ -463,11 +677,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Text functionality
     textBtn.addEventListener('click', () => {
+        selectMode = false;
         drawing = false;
         textMode = true;
         eraseMode = false;
         setActiveTool(textBtn);
         canvas.style.cursor = 'text';
+        if (colorPalette) colorPalette.classList.remove('palette-disabled');
     });
 
     // Add this function to create custom text input UI
@@ -604,6 +820,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Modify the camera/download button functionality
     cameraBtn.addEventListener('click', () => {
+        selectMode = false;
         setActiveTool(cameraBtn);
         const commentTitleInput = window.prompt('COMMENT TITLE ?', '');
         if (commentTitleInput === null) return;
@@ -681,11 +898,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Add eraser button handler
     eraseBtn.addEventListener('click', () => {
+        selectMode = false;
         drawing = false;
         textMode = false;
         eraseMode = true;
         setActiveTool(eraseBtn);
         canvas.style.cursor = 'cell';
+        if (colorPalette) colorPalette.classList.remove('palette-disabled');
+        setStrokeWidth(defaultStrokeWidth);
         // Alternative cursors you could use:
         // canvas.style.cursor = 'crosshair';
         // canvas.style.cursor = 'pointer';
@@ -710,6 +930,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 ctx.moveTo(element.x1, element.y1);
                 ctx.lineTo(element.x2, element.y2);
                 ctx.stroke();
+            } else if (element.type === 'path') {
+                ctx.strokeStyle = element.color || strokeColor;
+                ctx.lineWidth = element.width || strokeWidth;
+                ctx.beginPath();
+                const pts = element.points || [];
+                if (pts.length > 0) {
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                    }
+                    ctx.stroke();
+                }
+            } else if (element.type === 'dot') {
+                ctx.fillStyle = element.color || strokeColor;
+                const radius = Math.max(1, (element.width || strokeWidth) / 2);
+                ctx.beginPath();
+                ctx.arc(element.x, element.y, radius, 0, Math.PI * 2);
+                ctx.fill();
             } else if (element.type === 'text') {
                 drawTextElement(element);
             }
@@ -719,13 +957,27 @@ document.addEventListener('DOMContentLoaded', function () {
     // Modify erase function to better handle text elements
     function erase(e) {
         const pos = getMousePos(e);
-        const eraseRadius = 10;
+        const eraseRadius = Math.max(6, strokeWidth * 2.5);
         
         // Filter out elements near the eraser
         drawnElements = drawnElements.filter(element => {
             if (element.type === 'line') {
                 const dist = pointToLineDistance(pos, element);
                 return dist > eraseRadius;
+            } else if (element.type === 'path') {
+                const points = element.points || [];
+                if (points.length <= 1) {
+                    const p = points[0];
+                    if (!p) return true;
+                    return Math.hypot(pos.x - p.x, pos.y - p.y) > eraseRadius;
+                }
+                for (let i = 0; i < points.length - 1; i++) {
+                    const segment = { x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y };
+                    if (pointToLineDistance(pos, segment) <= eraseRadius) return false;
+                }
+                return true;
+            } else if (element.type === 'dot') {
+                return Math.hypot(pos.x - element.x, pos.y - element.y) > eraseRadius;
             } else if (element.type === 'text') {
                 const size = element.size || fontSize;
                 const { maxWidth, height } = getTextMetrics(element.text, size);

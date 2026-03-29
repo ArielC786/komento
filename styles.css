@@ -148,3 +148,87 @@ body {
     white-space: pre-wrap;
     word-wrap: break-word;
 }
+
+#colorPalette {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    backdrop-filter: blur(6px);
+}
+
+#colorPalette.palette-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.palette-undo {
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: #000;
+}
+
+.palette-undo svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    fill: currentColor;
+}
+
+.palette-divider {
+    height: 1px;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.12);
+    margin: 2px 0;
+}
+
+#sizeControl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+#strokeSize {
+    width: 34px;
+    height: 140px;
+    writing-mode: bt-lr;
+    -webkit-appearance: slider-vertical;
+}
+
+#strokeSizeValue {
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    padding: 0;
+    background: transparent;
+}
+
+.color-swatch.selected {
+    outline: 3px solid rgba(0, 0, 0, 0.8);
+    outline-offset: 2px;
+}

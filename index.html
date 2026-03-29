@@ -78,8 +78,29 @@
         <div id="title"><span class="title-main">Komento</span></div>
         <div id="copyright">© 2025 ArielC</div>
         <canvas id="canvas"></canvas>
+        <div id="colorPalette" role="toolbar" aria-label="Colors">
+            <button id="undoBtn" class="palette-undo" type="button" aria-label="Undo" title="Undo">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6a6 6 0 0 1-6 6H6v2h6a8 8 0 0 0 0-16z"></path>
+                </svg>
+            </button>
+            <div class="palette-divider"></div>
+            <button class="color-swatch" type="button" data-color="#000000" aria-label="Black" title="Black"></button>
+            <button class="color-swatch" type="button" data-color="#FFFFFF" aria-label="White" title="White"></button>
+            <button class="color-swatch" type="button" data-color="#FF0044" aria-label="Red" title="Red"></button>
+            <button class="color-swatch" type="button" data-color="#0066FF" aria-label="Blue" title="Blue"></button>
+            <button class="color-swatch" type="button" data-color="#00A84A" aria-label="Green" title="Green"></button>
+            <button class="color-swatch" type="button" data-color="#7A2CFF" aria-label="Purple" title="Purple"></button>
+            <button class="color-swatch" type="button" data-color="#FF8A00" aria-label="Orange" title="Orange"></button>
+            <div class="palette-divider"></div>
+            <div id="sizeControl" aria-label="Stroke size">
+                <input id="strokeSize" type="range" min="1" max="30" step="1" value="2" aria-label="Stroke size slider">
+                <div id="strokeSizeValue" aria-hidden="true">2</div>
+            </div>
+        </div>
         <div class="toolbar" role="toolbar" aria-label="Canvas tools">
             <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <button id="selectBtn" class="icon-button" aria-label="Select / Move" title="Select / Move"><img src="icons/arrow.png" alt="Select"></button>
             <button id="uploadBtn" class="icon-button" aria-label="Upload image"><img src="icons/upload-icon.png" alt="Upload"></button>
             <button id="drawBtn" class="icon-button" aria-label="Draw"><img src="icons/pen-icon.png" alt="Draw"></button>
             <button id="textBtn" class="icon-button" aria-label="Text"><img src="icons/text-icon.png" alt="Text"></button>
